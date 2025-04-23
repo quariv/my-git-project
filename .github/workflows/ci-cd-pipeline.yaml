@@ -1,14 +1,14 @@
-name: CI/CD Pipeline (self-hosted deploy)
+name: CI/CD Pipeline
 
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:
+  workflow_dispatch:        # allows manual “Run workflow”
 
+# ─────────────────────────────────────────────────────────────────────────────
+# BUILD  ─ runs on GitHub-hosted Ubuntu, builds & pushes Docker image
+# ─────────────────────────────────────────────────────────────────────────────
 jobs:
-# ─────────────────────────────────────────────────────────────
-# BUILD & PUSH IMAGE - still on GitHub-hosted Ubuntu
-# ─────────────────────────────────────────────────────────────
   build:
     runs-on: ubuntu-latest
     steps:
@@ -34,41 +34,45 @@ jobs:
           cache-from: type=gha
           cache-to:   type=gha,mode=max
 
-# ─────────────────────────────────────────────────────────────
-# DEPLOY TO KUBERNETES - runs on your self-hosted Windows runner
-# ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# DEPLOY  ─ runs on self-hosted Windows runner where Docker-Desktop cluster lives
+# ─────────────────────────────────────────────────────────────────────────────
   deploy:
-    runs-on: [self-hosted, Windows, X64]
     needs: build
+    runs-on: [ self-hosted, Windows, X64 ]   # labels of your local runner
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up kubectl (pre-installed on the runner is fine; this ensures the right version)
+      - name: Set up kubectl
         uses: azure/setup-kubectl@v3
         with:
-          version: v1.29.0
+          version: v1.29.0          # pin a kubectl version
 
+      # ─── Decode kube-config on Windows (certutil works everywhere) ─────────
       - name: Configure kubeconfig
+        shell: pwsh
         run: |
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > kubeconfig.yaml
+          # write secret to temp file
+          '${{ secrets.KUBE_CONFIG }}' | Out-File kubeconfig.b64 -Encoding ascii
+
+          # decode → kubeconfig.yaml
+          certutil -f -decode kubeconfig.b64 kubeconfig.yaml | Out-Null
+
+          # set env-var for later steps & GitHub job
           $Env:KUBECONFIG = "$PWD\kubeconfig.yaml"
-          echo "KUBECONFIG=$Env:KUBECONFIG" >> $Env:GITHUB_ENV
+          "KUBECONFIG=$Env:KUBECONFIG" | Out-File $Env:GITHUB_ENV -Encoding ascii -Append
+      # ───────────────────────────────────────────────────────────────────────
 
-      # ─── DEBUG BLOCK ───────────────────────────────────────
-      - name: Debug - show Kubernetes context & cluster-info
+      # Optional: quick sanity check that the runner can reach the cluster
+      - name: Debug – show context & cluster info
+        shell: pwsh
         run: |
-          Write-Host ">>> kubectl config current-context"
-          kubectl config current-context
-
-          Write-Host "\n>>> kubectl config view --minify"
-          kubectl config view --minify
-
-          Write-Host "\n>>> kubectl cluster-info"
-          kubectl cluster-info
-      # ───────────────────────────────────────────────────────
+          kubectl config current-context || true
+          kubectl cluster-info || true
 
       - name: Apply Kubernetes manifests
+        shell: pwsh
         run: |
           kubectl apply -f deployment.yaml
           kubectl apply -f service.yaml
