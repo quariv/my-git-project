@@ -49,7 +49,6 @@ jobs:
         with:
           version: v1.29.0          # pin a kubectl version
 
-     # ─── Decode kube-config on Windows ────────────────────────────────────────────
 - name: Configure kubeconfig
   shell: powershell
   run: |
@@ -62,7 +61,6 @@ jobs:
     # set env-var for later steps & GitHub job
     $Env:KUBECONFIG = "$PWD\kubeconfig.yaml"
     "KUBECONFIG=$Env:KUBECONFIG" | Out-File $Env:GITHUB_ENV -Encoding ascii -Append
-# ──────────────────────────────────────────────────────────────────────────────
 
 # Optional debug
 - name: Debug – show context & cluster info
