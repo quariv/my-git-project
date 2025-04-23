@@ -1,0 +1,17 @@
+# ignore everything by default
+*
+
+# except these:
+!package.json
+!package-lock.json
+!Dockerfile
+!server.js
+
+# (if you have any other code files or folders)
+!src/
+!public/
+
+# ignore common cruft
+node_modules
+.git
+.github
