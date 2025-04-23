@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: CI/CD Pipeline (self-hosted deploy)
 
 on:
   push:
@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
 
 jobs:
-# ────────────────────────────────────────────────────────────────────────────────
-# BUILD & PUSH IMAGE
-# ────────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+# BUILD & PUSH IMAGE - still on GitHub-hosted Ubuntu
+# ─────────────────────────────────────────────────────────────
   build:
     runs-on: ubuntu-latest
     steps:
@@ -21,8 +21,8 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build & push image
         uses: docker/build-push-action@v4
@@ -30,44 +30,43 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/my-app:latest
+          tags: ${{ secrets.DOCKER_USERNAME }}/my-app:latest
           cache-from: type=gha
           cache-to:   type=gha,mode=max
 
-# ────────────────────────────────────────────────────────────────────────────────
-# DEPLOY TO KUBERNETES
-# ────────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+# DEPLOY TO KUBERNETES - runs on your self-hosted Windows runner
+# ─────────────────────────────────────────────────────────────
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Windows, X64]
     needs: build
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up kubectl
+      - name: Set up kubectl (pre-installed on the runner is fine; this ensures the right version)
         uses: azure/setup-kubectl@v3
         with:
-          version: v1.29.0          # pin the kubectl version you need
+          version: v1.29.0
 
-      # Decode the secret and point KUBECONFIG at it
       - name: Configure kubeconfig
         run: |
           echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > kubeconfig.yaml
-          export KUBECONFIG=$PWD/kubeconfig.yaml
-          echo "KUBECONFIG=$KUBECONFIG" >> "$GITHUB_ENV"
+          $Env:KUBECONFIG = "$PWD\kubeconfig.yaml"
+          echo "KUBECONFIG=$Env:KUBECONFIG" >> $Env:GITHUB_ENV
 
-      # ─── DEBUG BLOCK ───────────────────────────────────────────────────
-      - name: Debug - show current Kubernetes context & cluster-info
+      # ─── DEBUG BLOCK ───────────────────────────────────────
+      - name: Debug - show Kubernetes context & cluster-info
         run: |
-          echo ">>> kubectl config current-context"
-          kubectl config current-context || true
+          Write-Host ">>> kubectl config current-context"
+          kubectl config current-context
 
-          echo -e "\n>>> kubectl config view --minify"
-          kubectl config view --minify || true
+          Write-Host "\n>>> kubectl config view --minify"
+          kubectl config view --minify
 
-          echo -e "\n>>> kubectl cluster-info"
-          kubectl cluster-info || true
-      # ──────────────────────────────────────────────────────────────────
+          Write-Host "\n>>> kubectl cluster-info"
+          kubectl cluster-info
+      # ───────────────────────────────────────────────────────
 
       - name: Apply Kubernetes manifests
         run: |
