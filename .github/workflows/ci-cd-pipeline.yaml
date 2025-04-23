@@ -48,26 +48,25 @@ jobs:
         uses: azure/setup-kubectl@v3
         with:
           version: v1.29.0          # pin a kubectl version
+     - name: Configure kubeconfig
+       shell: powershell
+       run: |
+        # write secret to temp file
+    '    ${{ secrets.KUBE_CONFIG }}' | Out-File kubeconfig.b64 -Encoding ascii
 
-- name: Configure kubeconfig
-  shell: powershell
-  run: |
-    # write secret to temp file
-    '${{ secrets.KUBE_CONFIG }}' | Out-File kubeconfig.b64 -Encoding ascii
-
-    # decode → kubeconfig.yaml
-    certutil -f -decode kubeconfig.b64 kubeconfig.yaml | Out-Null
+      # decode → kubeconfig.yaml
+         certutil -f -decode kubeconfig.b64 kubeconfig.yaml | Out-Null
 
     # set env-var for later steps & GitHub job
-    $Env:KUBECONFIG = "$PWD\kubeconfig.yaml"
-    "KUBECONFIG=$Env:KUBECONFIG" | Out-File $Env:GITHUB_ENV -Encoding ascii -Append
+         $Env:KUBECONFIG = "$PWD\kubeconfig.yaml"
+         "KUBECONFIG=$Env:KUBECONFIG" | Out-File $Env:GITHUB_ENV -Encoding ascii -Append
 
 # Optional debug
-- name: Debug – show context & cluster info
-  shell: powershell
-  run: |
-    kubectl config current-context || true
-    kubectl cluster-info || true
+    - name: Debug – show context & cluster info
+      shell: powershell
+      run: |
+       kubectl config current-context || true
+       kubectl cluster-info || true
 
       - name: Apply Kubernetes manifests
         shell: pwsh
