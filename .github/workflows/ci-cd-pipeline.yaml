@@ -49,27 +49,27 @@ jobs:
         with:
           version: v1.29.0          # pin a kubectl version
 
-      # ─── Decode kube-config on Windows (certutil works everywhere) ─────────
-      - name: Configure kubeconfig
-        shell: pwsh
-        run: |
-          # write secret to temp file
-          '${{ secrets.KUBE_CONFIG }}' | Out-File kubeconfig.b64 -Encoding ascii
+     # ─── Decode kube-config on Windows ────────────────────────────────────────────
+- name: Configure kubeconfig
+  shell: powershell
+  run: |
+    # write secret to temp file
+    '${{ secrets.KUBE_CONFIG }}' | Out-File kubeconfig.b64 -Encoding ascii
 
-          # decode → kubeconfig.yaml
-          certutil -f -decode kubeconfig.b64 kubeconfig.yaml | Out-Null
+    # decode → kubeconfig.yaml
+    certutil -f -decode kubeconfig.b64 kubeconfig.yaml | Out-Null
 
-          # set env-var for later steps & GitHub job
-          $Env:KUBECONFIG = "$PWD\kubeconfig.yaml"
-          "KUBECONFIG=$Env:KUBECONFIG" | Out-File $Env:GITHUB_ENV -Encoding ascii -Append
-      # ───────────────────────────────────────────────────────────────────────
+    # set env-var for later steps & GitHub job
+    $Env:KUBECONFIG = "$PWD\kubeconfig.yaml"
+    "KUBECONFIG=$Env:KUBECONFIG" | Out-File $Env:GITHUB_ENV -Encoding ascii -Append
+# ──────────────────────────────────────────────────────────────────────────────
 
-      # Optional: quick sanity check that the runner can reach the cluster
-      - name: Debug – show context & cluster info
-        shell: pwsh
-        run: |
-          kubectl config current-context || true
-          kubectl cluster-info || true
+# Optional debug
+- name: Debug – show context & cluster info
+  shell: powershell
+  run: |
+    kubectl config current-context || true
+    kubectl cluster-info || true
 
       - name: Apply Kubernetes manifests
         shell: pwsh
