@@ -1,24 +1,23 @@
 pipeline { 
     agent any 
+ 
     stages { 
-        stage('Build') { 
+        stage('Build Image') { 
             steps { 
-                sh 'echo Building Project' 
-                // Add your build commands here 
+                sh 'docker build -t vulnerable-app .' 
             } 
         } 
-        stage('Test') { 
+ 
+        stage('Trivy Scan') { 
             steps { 
-                sh 'echo Running Tests' 
-                // Add your test commands here 
-            } 
-        } 
-        stage('Deploy') { 
-            steps { 
-                sh 'echo Deploying Application' 
-                // Add your deployment commands here 
+                sh 'trivy image vulnerable-app > trivy-report.txt' 
             } 
         } 
     } 
-} 
  
+    post { 
+        always { 
+            archiveArtifacts artifacts: 'trivy-report.txt', fingerprint: true 
+        } 
+    } 
+} 
